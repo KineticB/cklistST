@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>점포_통합_자가점검_리포트</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root { 
+            --kk-green: #004a26; 
+            --kk-red: #d32f2f;   
+            --kk-light: #f9f8f0; 
+            --kk-shadow: rgba(0, 0, 0, 0.2);
+        }
+
+        body { font-family: 'Pretendard', sans-serif; background: var(--kk-light); margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 1100px; margin: auto; background: white; padding: 40px; border: 2px solid var(--kk-green); border-radius: 8px; box-shadow: 0 15px 35px var(--kk-shadow); position: relative; }
+        
+        /* 헤더 스타일 */
+        .main-title { text-align: center; margin-bottom: 30px; }
+        .main-title h1 { color: var(--kk-red); font-size: 2.8em; margin: 10px 0; text-shadow: 2px 2px 4px rgba(0,0,0,0.1); }
+        .main-title .sub { color: var(--kk-green); font-size: 1.6em; font-weight: bold; border-bottom: 4px double var(--kk-green); display: inline-block; padding-bottom: 5px; }
+
+        /* 정보 테이블 */
+        .info-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; border: 2px solid var(--kk-green); }
+        .info-table th { background: linear-gradient(180deg, var(--kk-green), #003a1d); color: white; padding: 12px; text-align: left; width: 15%; border: 1px solid var(--kk-green); }
+        .info-table td { border: 1px solid var(--kk-green); padding: 10px; background: #fff; }
+        input[type="text"], input[type="date"] { width: 100%; border: 1px solid #ddd; padding: 8px; box-sizing: border-box; border-radius: 4px; }
+
+        /* 섹션 스타일 */
+        .section { margin-top: 25px; display: none; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .section.active { display: block; }
+        .section-header { background: linear-gradient(90deg, var(--kk-green), #006b38); color: white; padding: 15px 20px; font-size: 1.3em; font-weight: bold; }
+        
+        .list-table { width: 100%; border-collapse: collapse; background: white; }
+        .list-table th { background: #f1f3f1; color: var(--kk-green); border: 1px solid var(--kk-green); padding: 12px; font-size: 1em; }
+        .list-table td { border: 1px solid var(--kk-green); padding: 12px; vertical-align: middle; }
+        
+        .item-no { width: 45px; text-align: center; color: var(--kk-red); font-weight: 800; font-size: 1.1em; }
+        .item-title { font-weight: bold; display: block; margin-bottom: 4px; }
+        .item-penalty { font-size: 0.88em; color: #d32f2f; font-weight: 500; }
+        
+        /* 라디오 옵션 스타일 (인쇄 대응용) */
+        .options-wrapper { display: flex; gap: 15px; white-space: nowrap; justify-content: center; align-items: center; }
+        .options-wrapper label { font-size: 0.95em; cursor: pointer; display: flex; align-items: center; gap: 6px; font-weight: 600; }
+        
+        /* 라디오 버튼 기본 디자인 커스텀 (인쇄 시 배경색 무시 방지) */
+        .options-wrapper input[type="radio"] {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border: 2px solid var(--kk-green);
+            border-radius: 50%;
+            background-color: #fff;
+            position: relative;
+            cursor: pointer;
+            margin: 0;
+        }
+        .options-wrapper input[type="radio"]:checked::before {
+            content: "";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 10px;
+            height: 10px;
+            background-color: var(--kk-green);
+            border-radius: 50%;
+        }
+
+        /* 플로팅 버튼 */
+        .floating-group { position: fixed; bottom: 30px; right: 30px; display: flex; flex-direction: column; gap: 15px; z-index: 1000; }
+        .f-btn { 
+            width: 85px; height: 85px; border-radius: 50%; border: 3px solid white; color: white; 
+            font-weight: bold; cursor: pointer; transition: 0.3s; font-size: 14px; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            box-shadow: 0 8px 15px rgba(0,0,0,0.3);
+        }
+        .f-btn.excel { background: linear-gradient(135deg, #27ae60, #1e8449); }
+        .f-btn.print { background: linear-gradient(135deg, #e74c3c, #c0392b); }
+        .f-btn:hover { transform: translateY(-5px) scale(1.05); }
+
+        .selector-box { background: #fff; border: 2px dashed var(--kk-green); padding: 20px; margin-bottom: 25px; border-radius: 8px; }
+
+        @media print {
+            .no-print { display: none !important; }
+            body { background: white; padding: 0; }
+            .container { border: 2px solid #000; padding: 10px; box-shadow: none; width: 100%; max-width: 100%; }
+            .section { page-break-after: always; display: none; border: 1px solid #000; }
+            .section.active { display: block !important; }
+            .section-header { background: #f0f0f0 !important; color: black !important; border-bottom: 2px solid #000; -webkit-print-color-adjust: exact; }
+            
+            /* 인쇄 시 라디오 버튼이 선명하게 보이도록 설정 */
+            .options-wrapper input[type="radio"] {
+                border: 2px solid #000 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            .options-wrapper input[type="radio"]:checked::before {
+                background-color: #000 !important;
+            }
+            .list-table td { border: 1px solid #000; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="floating-group no-print">
+    <button class="f-btn excel" onclick="exportToExcel()"><span>📊</span>EXCEL</button>
+    <button class="f-btn print" onclick="window.print()"><span>🖨️</span>PRINT</button>
+</div>
+
+<div class="container">
+    <div class="main-title">
+        <div class="sub">REPORT</div>
+        <h1>점포 통합 자가점검 리포트</h1>
+    </div>
+
+    <table class="info-table">
+        <tr>
+            <th>점검일자</th>
+            <td><input type="date" id="ins_date"></td>
+            <th>지점명</th>
+            <td><input type="text" id="branch_name" placeholder="지점명 입력"></td>
+        </tr>
+        <tr>
+            <th>점포명</th>
+            <td><input type="text" id="store_name" placeholder="점포명 입력"></td>
+            <th>점검자</th>
+            <td><input type="text" id="inspector" placeholder="성함 입력"></td>
+        </tr>
+    </table>
+
+    <div class="selector-box no-print">
+        <p style="margin-top:0; font-weight:bold; color:var(--kk-red);">* 출력 대상 선택 (종이 점검 시에도 선택한 항목이 출력됩니다)</p>
+        <label><input type="checkbox" id="chk1" checked onchange="toggleSec('sec1', this)"> 1. 인스펙션</label>
+        <label><input type="checkbox" id="chk2" checked onchange="toggleSec('sec2', this)"> 2. ESM</label>
+        <label><input type="checkbox" id="chk3" checked onchange="toggleSec('sec3', this)"> 3. 노동법(직영)</label>
+        <label><input type="checkbox" id="chk4" checked onchange="toggleSec('sec4', this)"> 4. 노동법(가맹)</label>
+    </div>
+
+    <div id="content-area">
+        <div class="section active" id="sec1">
+            <div class="section-header">1. 인스펙션 (위생/시설) 점검</div>
+            <table class="list-table">
+                <thead><tr><th>No.</th><th style="width: 70%;">점검 항목 / 기준</th><th>점검 결과</th></tr></thead>
+                <tbody id="list1"></tbody>
+            </table>
+        </div>
+        <div class="section active" id="sec2">
+            <div class="section-header">2. ESM (산업안전/소방) 점검</div>
+            <table class="list-table">
+                <thead><tr><th>No.</th><th style="width: 70%;">점검 항목 / 기준</th><th>점검 결과</th></tr></thead>
+                <tbody id="list2"></tbody>
+            </table>
+        </div>
+        <div class="section active" id="sec3">
+            <div class="section-header">3. 노동관계법 (직영) 점검</div>
+            <table class="list-table">
+                <thead><tr><th>No.</th><th style="width: 70%;">점검 항목 / 기준</th><th>점검 결과</th></tr></thead>
+                <tbody id="list3"></tbody>
+            </table>
+        </div>
+        <div class="section active" id="sec4">
+            <div class="section-header">4. 노동관계법 (가맹/위탁) 점검</div>
+            <table class="list-table">
+                <thead><tr><th>No.</th><th style="width: 70%;">점검 항목 / 기준</th><th>점검 결과</th></tr></thead>
+                <tbody id="list4"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    // [데이터 생략 - 이전과 동일하게 66개 항목 전체 포함됨]
+    const fullData = {
+        inspection: [ {t: "원부자재 소비기한 경과 진열, 보관, 사용, 판매, 변조", p: "영업정지 15일"}, {t: "후라잉 오일 산가 관리 (관리기준 2.0 미만)", p: "산가 3.0 초과: 영업정지 15일"}, {t: "건강진단서(보건증) 미보유 및 검진일 기준 1년 초과", p: "과태료 30~50만원"}, {t: "영업허가증(영업신고증) 원본 점포 비치 및 보관", p: "과태료 100만원 이하"}, {t: "원산지 표시판 적정 운영 (층별/구획별 각각 표시)", p: "과태료 5~1,000만원"}, {t: "위생교육 수료 여부 확인 (신규/보수 교육 연 1회)", p: "과태료 20만원"}, {t: "방역업체 소독필증 및 서비스 리포트 서류 관리", p: "과태료 100만원"}, {t: "제품별 영양성분 및 알레르기 유발식품 안내 게시", p: "과태료 100만원"}, {t: "거래명세서(직/배송) 등 법적기준 서류 보관", p: "과태료 20만원"}, {t: "원재료 및 식품 표시사항 식별 관리 (소분 관리)", p: "영업정지 1개월"}, {t: "반품/폐기상품 및 교육용 표시 명확화", p: "관리 미흡 시 시정명령"}, {t: "식재료 이격 관리 (바닥에서 15cm 이상)", p: "과태료 100만원"}, {t: "원재료/완제품 보관온도 준수 (냉장 10도, 냉동 -18도)", p: "영업정지 7일"}, {t: "허용된 식품첨가물 사용 및 보관 준수", p: "영업정지 15일"}, {t: "해동 방법 준수 (실온해동 금지, 해동라벨 부착)", p: "영업정지 7일"}, {t: "칼, 도마, 식기류 등 식품접촉도구 위생적 취급", p: "과태료 50만원"}, {t: "바닥, 배수구, 환기구, 후드 청결 및 기름때 관리", p: "과태료 50만원"}, {t: "제빙기 위생 관리 및 클리닝 체크리스트 작성", p: "과태료 50만원"}, {t: "위생모, 마스크 착용 및 개인 액세서리 착용 금지", p: "과태료 20만원"}, {t: "근무자 손 상처(화농성 질환) 관리 및 장갑 착용", p: "교차오염 방지"}, {t: "쓰레기통 덮개 사용 및 음식물 폐기물 적정 관리", p: "시설개수명령"} ],
+        esm: [ {t: "관리감독자 선임 및 자체 선임서/임명장 구비 (직영)", p: "산업안전보건법 제15조"}, {t: "관리감독자 교육 이수 확인 (연 16시간 준수)", p: "산업안전보건법 제26조"}, {t: "관리감독자 월 1회 안전점검 실시 (ESM 이용)", p: "전 점포 공통"}, {t: "안전보건관리규정 점포 내 보관 (PC/서면)", p: "직영 전 점포"}, {t: "정기안전보건교육 (분기 6시간) 실시 및 기록", p: "직영/가맹 5인↑"}, {t: "채용 시 안전교육 (8시간) 실시 및 이수증 보관", p: "직영/가맹 5인↑"}, {t: "산업안전보건법령 요지 게시판 게시 상태", p: "전 점포"}, {t: "3일 이상 휴업 사고 시 산업재해조사표 제출 여부", p: "최근 3년 내"}, {t: "매년 위험성평가 실시 및 3년치 보관", p: "전 점포"}, {t: "안전보건표지(화상, 베임, 미끄럼 등) 부착 및 훼손 확인", p: "전 점포"}, {t: "근골격계유해요인조사 실시 (3년 주기)", p: "전 점포"}, {t: "고객 폭언 예방 문구/포스터 게시", p: "전 점포"}, {t: "MSDS 보관 및 소분용기 경고표지 부착", p: "전 점포"}, {t: "보호구 지급대장 작성 및 적정 보호구 비치", p: "전 점포"}, {t: "탄산가스용기 전도방지 조치 (체인/고정 장치)", p: "전 점포"}, {t: "사다리 아웃트리거 설치 및 안전 사용 준수", p: "전 점포"}, {t: "가스 누설 경보기 및 화재 감지기 작동 확인", p: "소방시설법"}, {t: "K급 소화기 비치 및 분말소화기 연한(10년) 확인", p: "후라이어 인근"}, {t: "휴대용 비상조명등 및 피난구 유도등 점등 확인", p: "소방시설법"}, {t: "덕트 청소 시행 여부 및 필터 청결 상태", p: "화재 예방"}, {t: "라이더 면허 확인 및 바이크 정기검사 실시", p: "자체고용 점포"} ],
+        labor_direct: [ {t: "채용 시 성별/연령 차별 문구 기재 여부", p: "벌금 500만원"}, {t: "채용공고 내 '채용서류 반환 안내' 문구 포함", p: "과태료 300만원"}, {t: "신규/갱신 근로계약서 작성 및 즉시 교부", p: "벌금 500만원"}, {t: "근로자명부 작성 및 법정 필수 서류 구비", p: "벌금 500만원"}, {t: "연소자 친권자 동의서 및 야간/휴일근로 인가", p: "벌금 500만원"}, {t: "주 근무 계획표 매주 작성 및 3년 보관", p: "근태 관리"}, {t: "지각/결근/조퇴 시 근로자 확인 서명 관리", p: "근태 증빙"}, {t: "연장근로 한도 준수 (성인 12h, 연소자 5h 초과 금지)", p: "징역 2년/벌금 2천"}, {t: "휴가/임금대장/임금명세서 적법 관리 및 교부", p: "과태료 500만원"}, {t: "휴게시간 부여 준수 (4시간당 30분 자유 사용)", p: "징역 2년/벌금 2천"}, {t: "임신 중/산후 1년 근로자 연장/야간근로 제한", p: "모성보호"}, {t: "성희롱예방/장애인인식개선 교육일지 3년 보관", p: "법정교육"}, {t: "최저임금 게시 및 근로기준법령 요지 게시", p: "과태료 500만원"}, {t: "퇴직금 14일 이내 지급 및 미사용 연차 정산", p: "퇴사자 관리"}, {t: "취업규칙 점포 비치 및 변경 시 절차 준수", p: "과태료 500만원"} ],
+        labor_franchise: [ {t: "근로계약서 작성/교부 및 계약기간 확인", p: "벌금 500만원"}, {t: "모든 근로자 근로자명부 작성 및 보관", p: "과태료 500만원"}, {t: "주휴수당 및 연장/야간 가산 수당(5인↑) 지급", p: "임금 체불 방지"}, {t: "연차유급휴가 부여 및 미사용 수당 지급 (5인↑)", p: "근로기준법"}, {t: "모든 근로자 최저임금 이상 지급", p: "징역 3년/벌금 2천"}, {t: "휴게시간 적정 부여 및 기록 관리", p: "징역 2년/벌금 2천"}, {t: "성희롱예방교육/장애인인식개선 교육 일지 보관", p: "연 1회"}, {t: "사직원 및 무단결근 증빙 서류 작성 및 보관", p: "과태료 500만원"}, {t: "퇴직금 1년 이상 근무자 지급 여부 확인", p: "평균임금 산정 준수"}, {t: "임금명세서 교부 (계산방법 등 필수항목 포함)", p: "과태료 500만원"}, {t: "근로기준법령 요지 및 최저임금 게시 여부", p: "과태료 500만원"}, {t: "연소자 근로 시 관련 법적 증빙서류 비치", p: "해당 점포"}, {t: "해고 30일 전 예고 준수 또는 예고수당 지급", p: "벌금형"}, {t: "주 근무 계획표 보관 및 실제 근태 대조", p: "기본 근태 관리"}, {t: "취업규칙 게시 (상시근로자 10인 이상)", p: "과태료 500만원"} ]
+    };
+
+    function renderItems(targetId, items) {
+        const target = document.getElementById(targetId);
+        items.forEach((item, idx) => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td class="item-no">${idx + 1}</td>
+                <td>
+                    <span class="item-title">${item.t}</span>
+                    <span class="item-penalty">※ 법규/기준: ${item.p}</span>
+                </td>
+                <td>
+                    <div class="options-wrapper">
+                        <label><input type="radio" name="${targetId}_${idx}" value="양호"> 양호</label>
+                        <label><input type="radio" name="${targetId}_${idx}" value="불량"> 불량</label>
+                        <label><input type="radio" name="${targetId}_${idx}" value="N/A"> N/A</label>
+                    </div>
+                </td>
+            `;
+            target.appendChild(row);
+        });
+    }
+
+    function toggleSec(id, cb) {
+        document.getElementById(id).classList.toggle('active', cb.checked);
+    }
+
+    function exportToExcel() {
+        const store = document.getElementById('store_name').value || "점포명";
+        const inspector = document.getElementById('inspector').value || "성함";
+        const date = document.getElementById('ins_date').value || "날짜";
+        
+        let aoa = [
+            ["점포 통합 자가점검 리포트"],
+            ["점검일자", date, "지점명", document.getElementById('branch_name').value],
+            ["점포명", store, "점검자", inspector],
+            [],
+            ["No.", "점검 항목", "법규 및 관리 기준", "점검 결과"]
+        ];
+
+        const sections = [
+            { id: 'sec1', title: '1. 인스펙션 (위생/시설)', data: 'inspection' },
+            { id: 'sec2', title: '2. ESM (산업안전/소방)', data: 'esm' },
+            { id: 'sec3', title: '3. 노동관계법 (직영)', data: 'labor_direct' },
+            { id: 'sec4', title: '4. 노동관계법 (가맹)', data: 'labor_franchise' }
+        ];
+
+        sections.forEach(sec => {
+            if (document.getElementById(sec.id).classList.contains('active')) {
+                aoa.push([sec.title, "", "", ""]);
+                fullData[sec.data].forEach((item, idx) => {
+                    const radios = document.getElementsByName(`${sec.id.replace('sec', 'list')}_${idx}`);
+                    let res = "-";
+                    radios.forEach(r => { if(r.checked) res = r.value; });
+                    aoa.push([idx + 1, item.t, item.p, res]);
+                });
+                aoa.push([]); 
+            }
+        });
+
+        const ws = XLSX.utils.aoa_to_sheet(aoa);
+        ws['!cols'] = [{wch: 6}, {wch: 55}, {wch: 45}, {wch: 12}];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "자가점검결과");
+        XLSX.writeFile(wb, `${store}_${inspector}_${date}.xlsx`);
+    }
+
+    renderItems('list1', fullData.inspection);
+    renderItems('list2', fullData.esm);
+    renderItems('list3', fullData.labor_direct);
+    renderItems('list4', fullData.labor_franchise);
+</script>
+
+</body>
+</html>
